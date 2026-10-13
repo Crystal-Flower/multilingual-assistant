@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multilingual Gemini Assistant</title>
+</head>
+<body>
+    <h1>Gemini Voice Chat</h1>
+    <p>Click the button to start speaking in your language.</p>
+    <button id="recordButton">Start Recording</button>
+    <p id="status">Status: Idle</p>
+    <audio id="audioPlayback" hidden></audio>
+
+    <script>
+        const recordButton = document.getElementById('recordButton');
+        const statusText = document.getElementById('status');
+        const audioPlayback = document.getElementById('audioPlayback');
+
+        let recognition;
+        let isRecording = false;
+
+        // Check for Web Speech API browser compatibility
+        if ('webkitSpeechRecognition' in window) {
+            recognition = new webkitSpeechRecognition();
+            recognition.lang = 'en-US'; // Default language, but browser will try to detect
+            recognition.interimResults = false;
+            recognition.continuous = false; // Listen for a single utterance
+
+            recognition.onstart = () => {
+                isRecording = true;
+                statusText.textContent = 'Status: Listening...';
+                recordButton.textContent = 'Stop Recording';
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                statusText.textContent = `You said: "${transcript}"`;
+                isRecording = false;
+                recordButton.textContent = 'Start Recording';
+                sendTextToBackend(transcript);
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+                statusText.textContent = `Status: Error - ${event.error}`;
+                isRecording = false;
+                recordButton.textContent = 'Start Recording';
+            };
+
+            recognition.onend = () => {
+                if (isRecording) {
+                    recognition.start();
+                }
+            };
+        } else {
+            statusText.textContent = 'Status: Web Speech API not supported in this browser.';
+            recordButton.disabled = true;
+        }
+
+        recordButton.addEventListener('click', () => {
+            if (isRecording) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
+        });
+
+        function sendTextToBackend(text) {
+            statusText.textContent = 'Status: Thinking...';
+
+            fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message: text }),
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.blob();
+                }
+                throw new Error('Network response was not ok.');
+            })
+            .then(audioBlob => {
+                const audioUrl = URL.createObjectURL(audioBlob);
+                audioPlayback.src = audioUrl;
+                audioPlayback.play();
+                statusText.textContent = 'Status: Playing response...';
+            })
+            .catch(error => {
+                console.error('Error with backend call:', error);
+                statusText.textContent = 'Status: Failed to get response.';
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amrita Campus Robot Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .container {
+            max-width: 900px;
+            height: calc(100vh - 4rem);
+        }
+        .chat-box {
+            height: calc(100% - 100px);
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+        .robot-message {
+            background-color: #e5e7eb;
+            color: #1f2937;
+            border-radius: 1.5rem 1.5rem 1.5rem 0.5rem;
+        }
+        .user-message {
+            background-color: #3b82f6;
+            color: white;
+            border-radius: 1.5rem 1.5rem 0.5rem 1.5rem;
+        }
+        .message-bubble {
+            max-width: 85%;
+        }
+        /* Custom modal styles to replace alert() and confirm() */
+        .custom-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+        }
+        video {
+            border-radius: 0.75rem;
+        }
+    </style>
+</head>
+<body class="p-8 flex items-center justify-center">
+
+<div class="container bg-white shadow-xl rounded-2xl flex flex-col md:flex-row overflow-hidden">
+    <!-- Left Panel: Robot Interface -->
+    <div class="w-full md:w-1/2 bg-slate-900 p-8 flex flex-col items-center justify-center text-white">
+        <div class="w-full h-auto max-h-80 bg-slate-800 rounded-xl mb-6 shadow-lg border-4 border-slate-700 p-4 flex flex-col items-center justify-center text-center">
+            <!-- Live Camera Feed -->
+            <video id="liveCameraFeed" class="w-full h-full object-cover rounded-xl" autoplay playsinline></video>
+        </div>
+
+        <!-- User Identification -->
+        <div class="w-full text-center mb-6">
+            <label for="userName" class="block text-slate-300 font-semibold mb-2">Simulated Face Recognition:</label>
+            <input type="text" id="userName" placeholder="Enter your name (e.g., 'Anjali' or 'Vimal')" class="w-full px-4 py-3 rounded-xl bg-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300">
+            <button id="recognizeBtn" class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-md transition duration-300">
+                Identify Me
+            </button>
+        </div>
+
+        <div class="text-center text-sm text-slate-400">
+            <p>This panel simulates the robot's visual and identity recognition capabilities.</p>
+        </div>
+    </div>
+
+    <!-- Right Panel: Chat Interface -->
+    <div class="w-full md:w-1/2 p-8 flex flex-col">
+        <div class="flex-grow chat-box p-4" id="chatLog">
+            <!-- Chat messages will be appended here -->
+            <div class="message-bubble robot-message p-4 mb-4 shadow-sm">
+                <p class="text-sm">Hello! I am the Amrita Campus Reception Robot. Please tell me who you are so I can assist you better.</p>
+            </div>
+        </div>
+
+        <!-- Chat Input -->
+        <div class="w-full mt-4">
+            <label for="chatInput" class="block text-gray-700 font-semibold mb-2">Chat with the Robot:</label>
+            <div class="flex">
+                <input type="text" id="chatInput" placeholder="How can I help you today?" class="flex-grow px-4 py-3 rounded-l-xl bg-gray-100 border-2 border-gray-200 focus:outline-none focus:border-blue-500">
+                <button id="sendBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-r-xl shadow-md transition duration-300">
+                    Send
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Modal for Alerts -->
+<div id="customModal" class="custom-modal">
+    <div class="bg-white p-6 rounded-2xl shadow-xl max-w-sm w-full text-center">
+        <h3 id="modalTitle" class="text-lg font-bold mb-4">Alert</h3>
+        <p id="modalMessage" class="mb-6 text-gray-700"></p>
+        <button id="closeModalBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-xl transition duration-300">
+            OK
+        </button>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const chatLog = document.getElementById('chatLog');
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const userNameInput = document.getElementById('userName');
+        const recognizeBtn = document.getElementById('recognizeBtn');
+        const videoElement = document.getElementById('liveCameraFeed');
+        let userName = null;
+
+        // Start the camera feed
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                videoElement.srcObject = stream;
+            } catch (err) {
+                console.error("Error accessing the camera: ", err);
+                showModal('Camera Error', 'Could not access the camera. Please ensure you have granted permission.');
+            }
+        }
+        startCamera();
+
+        // Custom Modal Functions
+        function showModal(title, message) {
+            const modal = document.getElementById('customModal');
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            modal.style.display = 'flex';
+        }
+
+        document.getElementById('closeModalBtn').addEventListener('click', () => {
+            document.getElementById('customModal').style.display = 'none';
+        });
+
+        // Add a message to the chat log
+        function addMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message-bubble p-4 mb-4 shadow-sm transition-all duration-300 transform translate-y-2 opacity-0 ${sender === 'robot' ? 'robot-message' : 'user-message ml-auto'}`;
+            messageDiv.innerHTML = `<p class="text-sm">${text}</p>`;
+            chatLog.appendChild(messageDiv);
+
+            // Animate message entry
+            setTimeout(() => {
+                messageDiv.classList.remove('translate-y-2', 'opacity-0');
+            }, 50);
+
+            // Scroll to the bottom
+            chatLog.scrollTop = chatLog.scrollHeight;
+        }
+
+        // Simulate robot's response based on user input
+        function handleRobotResponse(query) {
+            let response = "I'm sorry, I don't have information on that. Can I help with something else?";
+            const lowerQuery = query.toLowerCase();
+
+            if (lowerQuery.includes('placement office')) {
+                response = "The Placement Office is located on the second floor of the Main Building. Please take the stairs or the elevator on your right. I can also help you with directions to the admissions office, library, or classrooms.";
+            } else if (lowerQuery.includes('admissions office')) {
+                response = "The Admissions Office is located on the ground floor, just past the reception area. The admissions officer's name is Ms. Priya. I can also help you with directions to the placement office, library, or classrooms.";
+            } else if (lowerQuery.includes('library')) {
+                response = "The Central Library is on the third floor of the Academic Block. It's open from 9 AM to 7 PM. I can also help you with directions to the admissions office, placement office, or classrooms.";
+            } else if (lowerQuery.includes('classrooms')) {
+                 response = "Sure, which classroom are you looking for? You can ask me for specific classrooms like 'ME-201' or 'CSE-304'.";
+            } else if (lowerQuery.includes('cse-304')) {
+                response = "CSE-304 is located on the third floor of the Computer Science and Engineering department. Please ask for the building map near the elevator.";
+            } else if (lowerQuery.includes('me-201')) {
+                response = "ME-201 is on the second floor of the Mechanical Engineering department. I can also help you with directions to the library or placement office.";
+            } else if (lowerQuery.includes('thank you') || lowerQuery.includes('thanks')) {
+                response = "You're most welcome, " + (userName || 'visitor') + "! Is there anything else I can assist you with?";
+            } else if (lowerQuery.includes('your name') || lowerQuery.includes('who are you')) {
+                response = "I am a prototype office assistant robot designed for the Amrita Vishwa Vidyapeetham Chennai campus.";
+            } else if (lowerQuery.includes('hello') || lowerQuery.includes('hi')) {
+                response = "Hello " + (userName || 'visitor') + "! How can I help you today?";
+            }
+
+            setTimeout(() => {
+                addMessage(response, 'robot');
+            }, 1000);
+        }
+
+        // Event listener for sending a chat message
+        function sendMessage() {
+            const query = chatInput.value.trim();
+            if (query === '') {
+                showModal('Input Required', 'Please type a message to the robot.');
+                return;
+            }
+            addMessage(query, 'user');
+            chatInput.value = '';
+            handleRobotResponse(query);
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Event listener for user recognition
+        function identifyUser() {
+            const name = userNameInput.value.trim();
+            if (name === '') {
+                showModal('Input Required', 'Please enter your name for identification.');
+                return;
+            }
+
+            userName = name;
+            addMessage(`Hello ${userName}! Welcome to Amrita Vishwa Vidyapeetham, Chennai Campus. How can I assist you today?`, 'robot');
+            userNameInput.disabled = true;
+            recognizeBtn.disabled = true;
+            recognizeBtn.textContent = 'Identified';
+            recognizeBtn.classList.remove('bg-blue-600');
+            recognizeBtn.classList.add('bg-gray-400');
+        }
+
+        recognizeBtn.addEventListener('click', identifyUser);
+        userNameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                identifyUser();
+            }
+        });
+
+    });
+</script>
+
+</body>
+</html>
